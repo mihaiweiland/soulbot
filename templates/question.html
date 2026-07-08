@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %} · Question {{ idx + 1 }}{% endblock %}
+{% block content %}
+<div class="sp-wrap">
+  <div class="sp-header">
+    <div class="sp-title">Soul Prompt</div>
+    <div class="sp-subtitle">{{ name }} · Question {{ idx + 1 }} of {{ total }}</div>
+  </div>
+  <div class="sp-progress-label">Progress</div>
+  <div class="sp-progress-bar"><div class="sp-progress-fill" style="width:{{ pct }}%"></div></div>
+  <div class="sp-theme">{{ q.theme }}</div>
+  <div class="sp-question">{{ q.q }}</div>
+  <div class="sp-why">{{ q.why }}</div>
+
+  <form action="{{ url_for('question_post', idx=idx) }}" method="post">
+    <textarea class="sp-textarea" name="answer" placeholder="Write here...">{{ answer }}</textarea>
+    <div class="sp-nav-row">
+      {% if idx > 0 %}
+        <button type="submit" name="action" value="back" class="sp-btn">← Back</button>
+      {% endif %}
+      {% if is_last %}
+        <button type="submit" name="action" value="generate" class="sp-btn sp-btn-primary">Generate my prompt →</button>
+      {% else %}
+        <button type="submit" name="action" value="next" class="sp-btn sp-btn-primary">Next →</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %} · Context Ready{% endblock %}
+{% block content %}
+<div class="sp-wrap">
+  <div class="sp-header">
+    <div class="sp-title">Soul Prompt</div>
+    <div class="sp-subtitle">{{ name }} · Context ready <span class="algo-badge">generated locally</span></div>
+  </div>
+
+  <div class="sp-section-label">Dominant Values Detected</div>
+  <div style="margin-bottom:8px;">
+    {% for v in top_values %}<span class="sp-value-tag">{{ v }}</span>{% endfor %}
+  </div>
+
+  <div class="sp-section-label">Your AI Agent Context Prompt</div>
+  <div class="sp-result">{{ context_prompt }}</div>
+
+  <hr class="sp-divider">
+  <div><span class="sp-save-badge">✓ Session file active</span></div>
+  <div class="sp-filepath">📁 {{ session_file }}</div>
+  <div style="color:var(--muted);font-size:12px;margin-top:16px;">
+    Every answer and every chat message is saved to that session file automatically.
+  </div>
+
+  <form action="{{ url_for('restart') }}" method="post" class="sp-form-block" style="margin-top:20px;">
+    <button type="submit" class="sp-btn">Start over</button>
+  </form>
+</div>
+
+<div class="chat-shell">
+  <div class="chat-header">
+    <div class="chat-avatar">{{ name[0]|upper if name else "?" }}</div>
+    <div>
+      <div class="chat-header-name">Your Values-Aligned Agent</div>
+      <div class="chat-header-sub">System prompt built from {{ name }}'s answers · chat auto-saved</div>
+    </div>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    {% if not chat_history %}
+      <div class="chat-thinking" id="chat-empty-hint">Your agent is ready. It knows who you are. Say anything.</div>
+    {% endif %}
+    {% for msg in chat_history %}
+      <div class="chat-bubble {{ msg.role }}">
+        <div class="chat-role">{{ name if msg.role == 'user' else 'Your Agent' }}</div>
+        <div class="chat-text">{{ msg.content }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+<div class="chat-input-row">
+  <textarea class="chat-textarea" id="chat-input" placeholder="Talk to your agent..."></textarea>
+  <button class="sp-btn sp-btn-primary" id="chat-send" type="button" style="align-self:flex-end;">Send</button>
+</div>
+
+<script>
+const userLabel = {{ name|tojson }};
+const messagesEl = document.getElementById('chat-messages');
+const inputEl = document.getElementById('chat-input');
+const sendBtn = document.getElementById('chat-send');
+const emptyHint = document.getElementById('chat-empty-hint');
+
+function addBubble(role, text) {
+  if (emptyHint) emptyHint.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-bubble ' + role;
+
+  const roleEl = document.createElement('div');
+  roleEl.className = 'chat-role';
+  roleEl.textContent = role === 'user' ? userLabel : 'Your Agent';
+
+  const textEl = document.createElement('div');
+  textEl.className = 'chat-text';
+  textEl.textContent = text;
+
+  wrap.appendChild(roleEl);
+  wrap.appendChild(textEl);
+  messagesEl.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return wrap;
+}
+
+function addThinking() {
+  const el = document.createElement('div');
+  el.className = 'chat-thinking';
+  el.id = 'thinking-indicator';
+  el.textContent = 'Agent is thinking...';
+  messagesEl.appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function removeThinking() {
+  const el = document.getElementById('thinking-indicator');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+  inputEl.value = '';
+  sendBtn.disabled = true;
+  addBubble('user', text);
+  addThinking();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    });
+    const data = await res.json();
+    removeThinking();
+    if (data.error) {
+      addBubble('assistant', '[Error: ' + data.error + ']');
+    } else {
+      addBubble('assistant', data.reply);
+    }
+  } catch (err) {
+    removeThinking();
+    addBubble('assistant', '[Error: ' + err + ']');
+  } finally {
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+}
+
+sendBtn.addEventListener('click', sendMessage);
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+</script>
+{% endblock %}
