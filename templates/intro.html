@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %} · Begin{% endblock %}
+{% block content %}
+<div class="sp-wrap">
+  <div class="sp-header">
+    <div class="sp-title">Soul Prompt</div>
+    <div class="sp-subtitle">Core values mapping · AI agent context generator <span class="algo-badge">algorithm-powered</span></div>
+  </div>
+  <div class="sp-intro">
+    <p>You are about to answer 15 questions designed to surface who you actually are — not who you perform.</p>
+    <p>Your answers are analysed by a local scoring engine that identifies your dominant values, extracts language from your own words, and assembles a fully structured agent context prompt — no API call, no external model, instant.</p>
+    <p>Every answer and every chat message is saved automatically to a personal session file.</p>
+  </div>
+
+  <form action="{{ url_for('start') }}" method="post" class="sp-form-block">
+    <input class="sp-name-input" type="text" name="name" placeholder="Your name" autofocus required>
+    <div class="sp-nav-row">
+      <button type="submit" class="sp-btn sp-btn-primary">Begin →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
