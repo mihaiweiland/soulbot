@@ -552,6 +552,10 @@ def api_chat():
         store.save_chat_turn("assistant", reply)
         return jsonify({"reply": reply})
     except Exception as e:
+        # Log the full error server-side (visible in Railway's deploy logs)
+        # so failures like a bad API key or invalid model name are easy to
+        # diagnose even though the client only gets a short message back.
+        app.logger.error("Anthropic API call failed (model=%s): %s", ANTHROPIC_MODEL, e)
         err = f"[Error: {e}]"
         state["chat_history"].append({"role": "assistant", "content": err})
         store.save_chat_turn("assistant", err)
