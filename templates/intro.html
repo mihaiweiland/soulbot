@@ -18,5 +18,14 @@
       <button type="submit" class="sp-btn sp-btn-primary">Begin →</button>
     </div>
   </form>
+
+  <div class="sp-or-divider"><span>or</span></div>
+
+  <form action="{{ url_for('talk_with_m') }}" method="post" class="sp-form-block">
+    <div class="sp-nav-row">
+      <button type="submit" class="sp-btn sp-btn-m">Talk with M</button>
+    </div>
+    <div class="sp-preset-hint">Skip the questionnaire and chat directly with M's agent, built from a prompt already generated earlier.</div>
+  </form>
 </div>
 {% endblock %}
