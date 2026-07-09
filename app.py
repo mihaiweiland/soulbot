@@ -3,10 +3,12 @@ import re
 import json
 import math
 import uuid
+import base64
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+import requests
 import anthropic
 from flask import (
     Flask, render_template, request, redirect,
@@ -20,6 +22,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me-in-production")
 
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+
+# GitHub sync — commits the finished session (answers + generated context
+# prompt) to a repo once the user completes all 15 questions.
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "")          # "owner/repo"
+GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
+GITHUB_SESSIONS_PATH = os.environ.get("GITHUB_SESSIONS_PATH", "sessions").strip("/")
+GITHUB_API_BASE = "https://api.github.com"
 
 # ═══════════════════════════════════════════════════════════════
 # QUESTIONS
@@ -117,6 +127,69 @@ class SessionStore:
     def _write(self, data):
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+# ═══════════════════════════════════════════════════════════════
+# GITHUB SYNC
+# ═══════════════════════════════════════════════════════════════
+def github_configured():
+    return bool(GITHUB_TOKEN and GITHUB_REPO)
+
+
+def push_session_to_github(session_id, data):
+    """
+    Commit the full session JSON (name, all 15 answers, generated context
+    prompt, top values) to GITHUB_REPO at
+    {GITHUB_SESSIONS_PATH}/{session_id}.json on GITHUB_BRANCH.
+
+    Returns a dict describing the outcome:
+      {"ok": True, "url": "<html url of the file>"}
+      {"ok": False, "error": "<message>"}
+    """
+    if not github_configured():
+        return {"ok": False, "error": "GitHub sync not configured (missing GITHUB_TOKEN/GITHUB_REPO)."}
+
+    file_path = f"{GITHUB_SESSIONS_PATH}/{session_id}.json"
+    api_url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{file_path}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    content_str = json.dumps(data, indent=2, ensure_ascii=False)
+    content_b64 = base64.b64encode(content_str.encode("utf-8")).decode("utf-8")
+
+    try:
+        # If the file already exists on this branch, GitHub requires its
+        # current sha to update it (shouldn't normally happen for a fresh
+        # session id, but handles retries / re-generation safely).
+        sha = None
+        get_resp = requests.get(api_url, headers=headers, params={"ref": GITHUB_BRANCH}, timeout=10)
+        if get_resp.status_code == 200:
+            sha = get_resp.json().get("sha")
+
+        payload = {
+            "message": f"Add soul-prompt session: {data.get('name', 'unknown')} ({session_id})",
+            "content": content_b64,
+            "branch": GITHUB_BRANCH,
+        }
+        if sha:
+            payload["sha"] = sha
+
+        put_resp = requests.put(api_url, headers=headers, json=payload, timeout=15)
+        if put_resp.status_code in (200, 201):
+            html_url = put_resp.json().get("content", {}).get("html_url", "")
+            return {"ok": True, "url": html_url}
+
+        try:
+            msg = put_resp.json().get("message", put_resp.text)
+        except Exception:
+            msg = put_resp.text
+        return {"ok": False, "error": f"GitHub API {put_resp.status_code}: {msg}"}
+
+    except requests.RequestException as e:
+        return {"ok": False, "error": f"Network error contacting GitHub: {e}"}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -317,6 +390,7 @@ def new_session(name):
         "context_prompt": "",
         "top_values": [],
         "chat_history": [],
+        "github_status": None,  # set once the questionnaire is completed
     }
     return sid
 
@@ -347,6 +421,7 @@ def get_state(sid):
         "chat_history": [
             {"role": m["role"], "content": m["content"]} for m in d.get("chat_history", [])
         ],
+        "github_status": None,
     }
     RUNTIME[sid] = state
     STORES[sid] = store
@@ -409,6 +484,11 @@ def question_post(idx):
         state["context_prompt"] = prompt
         state["top_values"] = top5
         store.save_context(prompt, top5)
+
+        # Push the completed session (all answers + generated prompt) to GitHub.
+        session_data = store.read() or {}
+        state["github_status"] = push_session_to_github(sid, session_data)
+
         return redirect(url_for("result"))
     if idx < 14:
         return redirect(url_for("question", idx=idx + 1))
@@ -428,6 +508,8 @@ def result():
         context_prompt=state["context_prompt"],
         chat_history=state["chat_history"],
         session_file=store.path.name if store.path else "",
+        github_status=state.get("github_status"),
+        github_configured=github_configured(),
     )
 
 
