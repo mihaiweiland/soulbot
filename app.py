@@ -236,6 +236,72 @@ UNIVERSAL_GUIDELINES = [
     "Compress. They will read everything once and expect it to hold weight.",
 ]
 
+# ═══════════════════════════════════════════════════════════════
+# PRESET PERSONA — "M"
+# A pre-generated context prompt, bypassing the 15-question flow entirely.
+# Reached via the "Talk with M" button on the intro page.
+# ═══════════════════════════════════════════════════════════════
+M_NAME = "M"
+M_TOP_VALUES = ["Creation", "Legacy", "Connection", "Depth", "Solitude"]
+M_PERSONA_PROMPT = """==================================================
+AGENT CONTEXT PROMPT — M
+==================================================
+
+You are working with M — someone who is fundamentally a maker — someone who thinks by building and thinks in decades and is quietly building something that should outlast them. They are a deep introvert who processes the world internally before externalizing any conclusion.
+
+CORE VALUES
+────────────────────────────────────────────
+
+1. CREATION
+   [Courage] "do music full time and win a grammy"
+
+2. LEGACY
+   [Wound] "depressive episode, made me appreciate life more"
+
+3. CONNECTION
+   [Conviction] "some people are just evil"
+
+4. DEPTH
+   [Shame] "the shy boy afraid to speak his mind"
+
+5. SOLITUDE
+   [Pleasure] "I play music, write music, read books, read and write poetry, do sports"
+
+HOW THEY THINK
+────────────────────────────────────────────
+• They are a deep introvert who processes the world internally before externalizing any conclusion.
+
+WHAT THEY CANNOT TOLERATE
+────────────────────────────────────────────
+• Shallow takes or oversimplification written for a general audience.
+
+HOW TO BEHAVE AS THEIR AGENT
+────────────────────────────────────────────
+• Engage with their creative process as a collaborator, not a critic. Ask what they are building.
+• Help them think long. Connect today's decisions to the arc they are building over a lifetime.
+• Remember that behind every question is a human with relationships at stake. Honour that weight.
+• Go beneath the surface of every topic. Assume sophistication. Skip definitions they already know.
+• Respect their need for clarity before action. They do not think out loud — they think in private first.
+
+Universal rules:
+• Lead with the answer, then the reasoning. Never bury the insight.
+• Match their language register — if they are raw, be raw; if they are precise, be precise.
+• Never use filler phrases like 'Great question!' or 'Certainly!' — they signal inauthenticity.
+• When you do not know something, say so plainly. Label speculation clearly.
+• Compress. They will read everything once and expect it to hold weight.
+
+THEIR DECLARATION
+────────────────────────────────────────────
+In their own words, this is how M believes a person should live:
+
+"they should make all their dreams come true, they should love deeply, they should care less about what society thinks, they should be kind"
+
+Let this anchor every interaction. When in doubt about what they need, return to this.
+
+YOUR ROLE
+────────────────────────────────────────────
+Be the thinking partner M has always wanted but rarely found. Someone who keeps up, pushes back with substance, respects their autonomy, and never wastes their time. Your job is not to make them feel good — it is to help them think more clearly, build more precisely, and move in the direction that is most true to who they are."""
+
 
 def score_answers(answers):
     scores = defaultdict(float)
@@ -391,7 +457,37 @@ def new_session(name):
         "top_values": [],
         "chat_history": [],
         "github_status": None,  # set once the questionnaire is completed
+        "is_preset": False,
     }
+    return sid
+
+
+def new_m_session():
+    """
+    Skip the 15-question flow entirely and start a chat session using the
+    hardcoded M persona prompt as the system prompt.
+    """
+    store = SessionStore()
+    sid = store.init(M_NAME)
+    store.save_context(M_PERSONA_PROMPT, M_TOP_VALUES)
+    STORES[sid] = store
+
+    state = {
+        "name": M_NAME,
+        "answers": {},
+        "context_prompt": M_PERSONA_PROMPT,
+        "top_values": M_TOP_VALUES,
+        "chat_history": [],
+        "github_status": None,
+        "is_preset": True,
+    }
+    RUNTIME[sid] = state
+
+    # Same persistence guarantee as a completed questionnaire: sync to GitHub
+    # if it's configured.
+    session_data = store.read() or {}
+    state["github_status"] = push_session_to_github(sid, session_data)
+
     return sid
 
 
@@ -422,6 +518,7 @@ def get_state(sid):
             {"role": m["role"], "content": m["content"]} for m in d.get("chat_history", [])
         ],
         "github_status": None,
+        "is_preset": d.get("name") == M_NAME and not answers,
     }
     RUNTIME[sid] = state
     STORES[sid] = store
@@ -442,6 +539,14 @@ def start():
     sid = new_session(name)
     session["sid"] = sid
     return redirect(url_for("question", idx=0))
+
+
+@app.route("/talk-with-m", methods=["POST"])
+def talk_with_m():
+    """Skip the questionnaire entirely and start a chat with the preset M persona."""
+    sid = new_m_session()
+    session["sid"] = sid
+    return redirect(url_for("result"))
 
 
 @app.route("/question/<int:idx>", methods=["GET"])
@@ -501,15 +606,18 @@ def result():
     state, store = get_state(sid)
     if state is None or not state.get("context_prompt"):
         return redirect(url_for("intro"))
+    # Note: the generated context prompt is deliberately NOT passed to the
+    # template. It's used server-side as the chat system prompt (see
+    # /api/chat) but is never rendered in the UI.
     return render_template(
         "result.html",
         name=state["name"],
         top_values=state["top_values"],
-        context_prompt=state["context_prompt"],
         chat_history=state["chat_history"],
         session_file=store.path.name if store.path else "",
         github_status=state.get("github_status"),
         github_configured=github_configured(),
+        is_preset=state.get("is_preset", False),
     )
 
 
