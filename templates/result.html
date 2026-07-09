@@ -1,76 +1,65 @@
 {% extends "base.html" %}
-{% block title %} · Context Ready{% endblock %}
+{% block title %} · Your Agent{% endblock %}
 {% block content %}
-<div class="sp-wrap">
-  <div class="sp-header">
-    <div class="sp-title">Soul Prompt</div>
-    <div class="sp-subtitle">{{ name }} · Context ready <span class="algo-badge">generated locally</span></div>
+<div class="sp-wrap sp-wrap-chat">
+  <div class="sp-header sp-header-compact">
+    <div>
+      <div class="sp-title" style="font-size:24px;">Soul Prompt</div>
+      <div class="sp-subtitle">{{ name }} · Agent ready <span class="algo-badge">generated locally</span></div>
+    </div>
+    <form action="{{ url_for('restart') }}" method="post">
+      <button type="submit" class="sp-btn sp-btn-small">Start over</button>
+    </form>
   </div>
 
-  <div class="sp-section-label">Dominant Values Detected</div>
-  <div style="margin-bottom:8px;">
-    {% for v in top_values %}<span class="sp-value-tag">{{ v }}</span>{% endfor %}
-  </div>
-
-  <div class="sp-section-label">Your AI Agent Context Prompt</div>
-  <div class="sp-result">{{ context_prompt }}</div>
-
-  <hr class="sp-divider">
-  <div><span class="sp-save-badge">✓ Session file active</span></div>
-  <div class="sp-filepath">📁 {{ session_file }}</div>
-  {% if github_status %}
-  {% if github_status.ok %}
-    <div style="margin-top:10px;">
-      <span class="sp-save-badge">✓ Synced to GitHub</span>
-      {% if github_status.url %}
-        <a href="{{ github_status.url }}" target="_blank" rel="noopener" ...>View commit →</a>
+  <div class="sp-status-row">
+    <span class="sp-save-badge">✓ Session saved</span>
+    {% if github_status %}
+      {% if github_status.ok %}
+        <span class="sp-save-badge">✓ Synced to GitHub</span>
+        {% if github_status.url %}
+          <a href="{{ github_status.url }}" target="_blank" rel="noopener" class="sp-inline-link">View commit →</a>
+        {% endif %}
+      {% else %}
+        <span class="sp-save-badge sp-save-badge-warn">⚠ GitHub sync failed</span>
       {% endif %}
-    </div>
-  {% else %}
-    <div style="margin-top:10px;">
-      <span class="sp-save-badge" style="...red variant...">⚠ GitHub sync failed</span>
-      <div class="sp-filepath">{{ github_status.error }}</div>
-    </div>
-  {% endif %}
-{% elif not github_configured %}
-  <div class="sp-filepath" style="margin-top:10px;">GitHub sync not configured — set GITHUB_TOKEN and GITHUB_REPO to enable it.</div>
-{% endif %}
-  <div style="color:var(--muted);font-size:12px;margin-top:16px;">
-    Every answer and every chat message is saved to that session file automatically.
+    {% endif %}
   </div>
-
-  <form action="{{ url_for('restart') }}" method="post" class="sp-form-block" style="margin-top:20px;">
-    <button type="submit" class="sp-btn">Start over</button>
-  </form>
 </div>
 
-<div class="chat-shell">
+<div class="chat-shell chat-shell-main">
   <div class="chat-header">
     <div class="chat-avatar">{{ name[0]|upper if name else "?" }}</div>
     <div>
-      <div class="chat-header-name">Your Values-Aligned Agent</div>
-      <div class="chat-header-sub">System prompt built from {{ name }}'s answers · chat auto-saved</div>
+      <div class="chat-header-name">{{ "M's Agent" if is_preset else "Your Values-Aligned Agent" }}</div>
+      <div class="chat-header-sub">
+        {% if is_preset %}Talking as M's dedicated agent · chat auto-saved{% else %}Built from {{ name }}'s answers · chat auto-saved{% endif %}
+      </div>
     </div>
   </div>
-  <div class="chat-messages" id="chat-messages">
+  <div class="chat-messages chat-messages-tall" id="chat-messages">
     {% if not chat_history %}
-      <div class="chat-thinking" id="chat-empty-hint">Your agent is ready. It knows who you are. Say anything.</div>
+      <div class="chat-thinking" id="chat-empty-hint">
+        {% if is_preset %}M's agent is ready. Say anything.{% else %}Your agent is ready. It knows who you are. Say anything.{% endif %}
+      </div>
     {% endif %}
     {% for msg in chat_history %}
       <div class="chat-bubble {{ msg.role }}">
-        <div class="chat-role">{{ name if msg.role == 'user' else 'Your Agent' }}</div>
+        <div class="chat-role">{{ (('You' if is_preset else name)) if msg.role == 'user' else ("M's Agent" if is_preset else 'Your Agent') }}</div>
         <div class="chat-text">{{ msg.content }}</div>
       </div>
     {% endfor %}
   </div>
-</div>
-<div class="chat-input-row">
-  <textarea class="chat-textarea" id="chat-input" placeholder="Talk to your agent..."></textarea>
-  <button class="sp-btn sp-btn-primary" id="chat-send" type="button" style="align-self:flex-end;">Send</button>
+  <div class="chat-input-row chat-input-row-attached">
+    <textarea class="chat-textarea" id="chat-input" placeholder="{{ 'Talk to M...' if is_preset else 'Talk to your agent...' }}" autofocus></textarea>
+    <button class="sp-btn sp-btn-primary" id="chat-send" type="button">Send</button>
+  </div>
 </div>
 
 <script>
-const userLabel = {{ name|tojson }};
+const isPreset = {{ is_preset|tojson }};
+const userLabel = isPreset ? "You" : {{ name|tojson }};
+const agentLabel = isPreset ? "M's Agent" : "Your Agent";
 const messagesEl = document.getElementById('chat-messages');
 const inputEl = document.getElementById('chat-input');
 const sendBtn = document.getElementById('chat-send');
@@ -83,7 +72,7 @@ function addBubble(role, text) {
 
   const roleEl = document.createElement('div');
   roleEl.className = 'chat-role';
-  roleEl.textContent = role === 'user' ? userLabel : 'Your Agent';
+  roleEl.textContent = role === 'user' ? userLabel : agentLabel;
 
   const textEl = document.createElement('div');
   textEl.className = 'chat-text';
@@ -147,5 +136,6 @@ inputEl.addEventListener('keydown', (e) => {
     sendMessage();
   }
 });
+inputEl.focus();
 </script>
 {% endblock %}
