@@ -84,6 +84,12 @@ body { font-family: 'Inter', sans-serif; padding: 40px 16px; }
 .sp-nav-row { display: flex; gap: 12px; margin-top: 16px; }
 .sp-form-block { margin-top: 8px; }
 
+.sp-or-divider { display: flex; align-items: center; gap: 14px; margin: 28px 0; color: var(--muted); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; }
+.sp-or-divider::before, .sp-or-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.sp-btn-m { background: transparent; border: 1px solid var(--accent-dim); color: var(--accent); }
+.sp-btn-m:hover { background: #1C181022; border-color: var(--accent); }
+.sp-preset-hint { color: var(--muted); font-size: 12px; margin-top: 10px; max-width: 480px; }
+
 /* Chat */
 .chat-shell { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; max-width: 780px; margin: 32px auto 0; overflow: hidden; }
 .chat-header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 18px 28px; display: flex; align-items: center; gap: 12px; }
@@ -103,6 +109,20 @@ body { font-family: 'Inter', sans-serif; padding: 40px 16px; }
 .chat-input-row { display: flex; gap: 12px; max-width: 780px; margin: 0 auto; background: var(--bg); border: 1px solid var(--border); border-top: none; padding: 16px 20px; }
 .chat-textarea { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; padding: 10px 12px; border-radius: 3px; resize: none; outline: none; height: 60px; }
 .chat-textarea:focus { border-color: var(--accent-dim); }
+
+/* Chat-first result screen */
+.sp-wrap-chat { padding-bottom: 0; }
+.sp-header-compact { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: none; padding-bottom: 0; margin-bottom: 16px; }
+.sp-btn-small { height: 32px; padding: 0 14px; font-size: 12px; }
+.sp-status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.sp-status-row .sp-save-badge { margin-top: 0; }
+.sp-save-badge-warn { background: #2A1A1A; border-color: #8A4A4A33; color: #C97A7A; }
+.sp-inline-link { color: var(--accent); font-size: 11px; letter-spacing: 0.05em; text-decoration: none; }
+.sp-inline-link:hover { text-decoration: underline; }
+
+.chat-shell-main { margin-top: 12px; display: flex; flex-direction: column; height: calc(100vh - 220px); min-height: 480px; }
+.chat-messages-tall { flex: 1; max-height: none; }
+.chat-input-row-attached { max-width: none; margin: 0; border-top: 1px solid var(--border); }
 
 form { margin: 0; }
 </style>
