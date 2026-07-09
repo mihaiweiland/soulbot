@@ -18,6 +18,23 @@
   <hr class="sp-divider">
   <div><span class="sp-save-badge">✓ Session file active</span></div>
   <div class="sp-filepath">📁 {{ session_file }}</div>
+  {% if github_status %}
+  {% if github_status.ok %}
+    <div style="margin-top:10px;">
+      <span class="sp-save-badge">✓ Synced to GitHub</span>
+      {% if github_status.url %}
+        <a href="{{ github_status.url }}" target="_blank" rel="noopener" ...>View commit →</a>
+      {% endif %}
+    </div>
+  {% else %}
+    <div style="margin-top:10px;">
+      <span class="sp-save-badge" style="...red variant...">⚠ GitHub sync failed</span>
+      <div class="sp-filepath">{{ github_status.error }}</div>
+    </div>
+  {% endif %}
+{% elif not github_configured %}
+  <div class="sp-filepath" style="margin-top:10px;">GitHub sync not configured — set GITHUB_TOKEN and GITHUB_REPO to enable it.</div>
+{% endif %}
   <div style="color:var(--muted);font-size:12px;margin-top:16px;">
     Every answer and every chat message is saved to that session file automatically.
   </div>
